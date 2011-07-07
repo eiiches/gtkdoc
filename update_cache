@@ -17,31 +17,31 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 # USA
 
-SELFPATH=`realpath $0`
-TOOLDIR=`dirname $SELFPATH`
-cd $TOOLDIR
+# database
+database="index.db"
+docdirs=('/usr/share/gtk-doc/html' '/usr/local/share/gtk-doc/html')
 
-DOCDIRS=('/usr/share/gtk-doc/html' '/usr/local/share/gtk-doc/html')
-INDEXDB=index
+# always cd to script directory
+scriptpath="$(readlink -f "$0")"
+scriptdir="$(dirname "$scriptpath")"
+cd "$scriptdir"
 
-TMPFILE=`mktemp`
+tmp=$(mktemp)
 
-echo "PRAGMA foreign_keys=OFF;" >> $TMPFILE
-echo "DROP TABLE IF EXISTS tmp;" >> $TMPFILE
-echo "CREATE TABLE tmp (key TEXT, path TEXT, PRIMARY KEY (key, path));" >> $TMPFILE
-echo "BEGIN TRANSACTION;" >> $TMPFILE
+echo "PRAGMA foreign_keys=OFF;" >> $tmp
+echo "DROP TABLE IF EXISTS tmp;" >> $tmp
+echo "CREATE TABLE tmp (key TEXT, path TEXT, PRIMARY KEY (key, path));" >> $tmp
+echo "BEGIN TRANSACTION;" >> $tmp
 
-for dir in $DOCDIRS
-do
-	for index in $dir/*/*.devhelp2 $dir/*/*.devhelp
-	do
-		./cache_query $index >> $TMPFILE
+for dir in $docdirs; do
+	for index in $dir/*/*.devhelp2 $dir/*/*.devhelp; do
+		./cache_query $index >> $tmp
 	done
 done
 
-echo "COMMIT;" >> $TMPFILE
-echo "CREATE INDEX idx_tmp_key ON tmp (key);" >> $TMPFILE
+echo "COMMIT;" >> $tmp
+echo "CREATE INDEX idx_tmp_key ON tmp (key);" >> $tmp
 
-sqlite3 $INDEXDB < $TMPFILE
+sqlite3 "$database" < $tmp
 
-rm $TMPFILE
+rm $tmp

@@ -17,39 +17,33 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 # USA
 
-# no arguments
-if [ $# -lt 1 ]
-then
-	exit
+# database
+database="index.db"
+
+# always cd to script directory
+scriptpath="$(readlink -f "$0")"
+scriptdir="$(dirname "$scriptpath")"
+cd "$scriptdir"
+
+# no arguments specified, or specified keyword is too short
+[ $# -lt 1 ] || [ ${#1} -lt 5 ] && \
+	exit 1
+
+# try exact match
+result=$(sqlite3 "$database" "SELECT path FROM tmp WHERE key = '$1'")
+
+# try prefix match
+if [ -z "$result" ]; then
+	result=$(sqlite3 "$database" "SELECT path FROM tmp WHERE key like '$1%' ORDER BY length(key) ASC")
 fi
 
-# specified keyword is too short
-if [ ${#1} -lt 5 ]
-then
-	exit
-fi
-
-SELFPATH=`realpath $0`
-TOOLDIR=`dirname $SELFPATH`
-cd $TOOLDIR
-
-INDEXDB=index
-TMPFILE=`mktemp`
-
-# exact match
-ROWS=`sqlite3 $INDEXDB "SELECT path FROM tmp WHERE key = '$1'"`
-
-if [ -z "$ROWS" ]
-then
-	ROWS=`sqlite3 $INDEXDB "SELECT path FROM tmp WHERE key like '$1%' ORDER BY length(key) ASC"`
-fi
-
-./get $ROWS > $TMPFILE
-if [ $? -eq 0 ]
-then
-	w3m -dump -T text/html $TMPFILE
+# render HTML
+tmp=$(mktemp)
+if ./get $result > $tmp; then
+	w3m -dump -T text/html $tmp
+	rm $tmp
 else
 	echo "No documentation found."
+	rm $tmp
+	exit 1
 fi
-
-rm $TMPFILE
