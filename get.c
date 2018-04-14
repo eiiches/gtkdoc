@@ -23,6 +23,8 @@
 #include <glib.h>
 #include <stdlib.h>
 #include <string.h>
+#include <glib.h>
+#include <glib/gprintf.h>
 
 static const gchar *
 find_in_buffer (const gchar *buffer,
@@ -72,6 +74,9 @@ get_document(const gchar *uri)
 	filename = g_strndup(uri, anchor - uri);
 	anchor++;
 
+   g_fprintf (stderr, "filename: %s\n", filename);
+   g_fprintf (stderr, "anchor: %s\n", anchor);
+
 	if (g_str_has_prefix (filename, "file://"))
 		offset = 7;
 
@@ -95,19 +100,49 @@ get_document(const gchar *uri)
 		const gchar *startkey;
 		const gchar *endkey;
 
+         GError *err = NULL;
+         GMatchInfo *matchInfo;
+         GRegex *regex;
+
+         regex = g_regex_new ("\\.", 0, 0, &err);
+     
+         g_regex_match (regex, anchor, 0, &matchInfo);
+         if (g_match_info_matches (matchInfo)) {
+
 		length -= start - contents;
-		startkey = "<pre class=\"programlisting\">";
+		startkey = "<a class=\"link\"";
 		start = find_in_buffer(start, startkey, length, strlen(startkey));
 		if (start)
 		{
-			endkey = "<div class=\"refsect";
-			end = find_in_buffer(start, endkey, length - strlen(startkey), strlen(endkey));
-			if (!end)
-			{
-				endkey = "<div class=\"footer";
-				end = find_in_buffer(start, endkey, length - strlen(startkey), strlen(endkey));
-			}
-		}
+   
+         regex = g_regex_new ("href=\"(.*?)\"", 0, 0, &err);
+     
+         g_regex_match (regex, start, 0, &matchInfo);
+         if (g_match_info_matches (matchInfo)) {
+            gchar *result = g_match_info_fetch (matchInfo, 1);
+         
+            g_fprintf(stderr, "link=%s\n", result);
+            g_fprintf(stderr, "basename=%s\n", g_path_get_dirname(filename));
+            filename = g_build_filename(g_path_get_dirname(filename), result, NULL);
+            g_fprintf(stderr, "filename=%s\n", filename);
+            g_free (result);
+            return get_document(filename);
+         }
+      }
+         }
+
+	   startkey = "<pre class=\"programlisting\">";
+	   start = find_in_buffer(start, startkey, length, strlen(startkey));
+	   if (start)
+	   {
+	   	endkey = "<div class=\"refsect";
+	   	end = find_in_buffer(start, endkey, length - strlen(startkey), strlen(endkey));
+	   	if (!end)
+	   	{
+	   		endkey = "<div class=\"footer";
+	   		end = find_in_buffer(start, endkey, length - strlen(startkey), strlen(endkey));
+	   	}
+	   }
 	}
 
 	if (!(start && end))
