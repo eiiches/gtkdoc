@@ -53,17 +53,12 @@ fi
 
 # try method match
 if [ -z "$result" ]; then
-   QUERY=${QUERY/_/-} 
+   METHOD=${QUERY/_/-} 
 	result=$(sqlite3 "$database" "SELECT path FROM tmp WHERE key like '%$QUERY%' ORDER BY length(key) ASC")
 fi
-
-# render HTML
-tmp=$(mktemp)
-if ./get $result 2>/dev/null > $tmp; then
-	w3m -dump -T text/html $tmp
-	rm $tmp
+if [ -n "$result" ]; then
+   echo "$result"
 else
 	echo "No documentation found."
-	rm $tmp
 	exit 1
 fi
